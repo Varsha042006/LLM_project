@@ -32,7 +32,9 @@ def on_startup():
 # Mount Static Files for Generated Images and Uploads
 generated_images_dir = os.path.join("backend_uploads", "generated_images")
 os.makedirs(generated_images_dir, exist_ok=True)
+os.makedirs(settings.UPLOAD_DIR, exist_ok=True)
 app.mount("/api/images", StaticFiles(directory=generated_images_dir), name="images")
+app.mount("/api/uploads", StaticFiles(directory=settings.UPLOAD_DIR), name="uploads")
 
 
 # Include Routers

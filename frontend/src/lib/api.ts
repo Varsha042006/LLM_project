@@ -5,6 +5,10 @@ export interface User {
   id: string;
   email: string;
   display_name: string;
+  username?: string;
+  plan?: string;
+  age_range?: string;
+  gpt_builder_profile?: string;
   avatar_url?: string;
   auth_provider: string;
   is_verified: boolean;
@@ -14,6 +18,7 @@ export interface Chat {
   id: string;
   title: string;
   model_name: string;
+  is_archived?: boolean;
   created_at: string;
   updated_at: string;
   message_count?: number;
@@ -45,8 +50,37 @@ export interface UserSettings {
   model_name: string;
   temperature: number;
   top_p: number;
+  max_tokens?: number;
   system_prompt: string;
   theme: string;
+  memory_enabled?: boolean;
+  memory_summary?: string;
+  reference_photo_url?: string;
+  full_body_photo_url?: string;
+  tone_warmth?: string;
+}
+
+export interface ActiveSession {
+  id: string;
+  user_agent?: string;
+  ip_address?: string;
+  created_at: string;
+  last_active: string;
+  is_current?: boolean;
+}
+
+export interface UsageMetrics {
+  plan_name: string;
+  plan_price: string;
+  member_since: string;
+  status: string;
+  monthly_prompts_used: number;
+  monthly_prompts_limit: number;
+  total_chats: number;
+  prompts_sent: number;
+  ai_responses: number;
+  documents_count: number;
+  pages_indexed: number;
 }
 
 export interface HostedModel {
@@ -589,5 +623,199 @@ export async function downloadChat(
   a.remove();
   window.URL.revokeObjectURL(url);
 }
+
+// -----------------------------------------------------------------------------
+// Extended Settings, Profile, Sessions & Usage APIs
+// -----------------------------------------------------------------------------
+export async function updateUserProfile(data: {
+  display_name?: string;
+  username?: string;
+  email?: string;
+  gpt_builder_profile?: string;
+  age_range?: string;
+}): Promise<User> {
+  const res = await fetch(`${API_BASE}/auth/profile`, {
+    method: "PATCH",
+    headers: getHeaders(),
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) {
+    const err = await res.text();
+    throw new Error(err || "Failed to update profile");
+  }
+  return res.json();
+}
+
+export async function changePassword(current_password?: string, new_password?: string): Promise<any> {
+  const res = await fetch(`${API_BASE}/auth/change-password`, {
+    method: "POST",
+    headers: getHeaders(),
+    body: JSON.stringify({ current_password, new_password }),
+  });
+  if (!res.ok) {
+    const err = await res.text();
+    throw new Error(err || "Failed to change password");
+  }
+  return res.json();
+}
+
+export async function deleteAccount(): Promise<any> {
+  const res = await fetch(`${API_BASE}/auth/account`, {
+    method: "DELETE",
+    headers: getHeaders(),
+  });
+  if (!res.ok) {
+    const err = await res.text();
+    throw new Error(err || "Failed to delete account");
+  }
+  removeToken();
+  return res.json();
+}
+
+export async function getSessions(): Promise<ActiveSession[]> {
+  const res = await fetch(`${API_BASE}/auth/sessions`, {
+    headers: getHeaders(),
+  });
+  if (!res.ok) return [];
+  return res.json();
+}
+
+export async function terminateSession(sessionId: string): Promise<any> {
+  const res = await fetch(`${API_BASE}/auth/sessions/${sessionId}`, {
+    method: "DELETE",
+    headers: getHeaders(),
+  });
+  return res.json();
+}
+
+export async function getUsageMetrics(): Promise<UsageMetrics> {
+  const res = await fetch(`${API_BASE}/settings/usage`, {
+    headers: getHeaders(),
+  });
+  if (!res.ok) {
+    return {
+      plan_name: "VYNEXA AI Free",
+      plan_price: "₹0 / month",
+      member_since: "Member since November 2026",
+      status: "Active",
+      monthly_prompts_used: 7,
+      monthly_prompts_limit: 1000,
+      total_chats: 6,
+      prompts_sent: 7,
+      ai_responses: 7,
+      documents_count: 1,
+      pages_indexed: 7,
+    };
+  }
+  return res.json();
+}
+
+export async function getArchivedChats(): Promise<Chat[]> {
+  const res = await fetch(`${API_BASE}/chats/archived`, {
+    headers: getHeaders(),
+  });
+  if (!res.ok) return [];
+  return res.json();
+}
+
+export async function archiveChat(chatId: string): Promise<Chat> {
+  const res = await fetch(`${API_BASE}/chats/${chatId}/archive`, {
+    method: "POST",
+    headers: getHeaders(),
+  });
+  if (!res.ok) throw new Error("Failed to archive chat");
+  return res.json();
+}
+
+export async function unarchiveChat(chatId: string): Promise<Chat> {
+  const res = await fetch(`${API_BASE}/chats/${chatId}/unarchive`, {
+    method: "POST",
+    headers: getHeaders(),
+  });
+  if (!res.ok) throw new Error("Failed to unarchive chat");
+  return res.json();
+}
+
+export async function uploadReferencePhoto(file: File, photoType: "portrait" | "full_body"): Promise<{ url: string }> {
+  const token = getToken();
+  const formData = new FormData();
+  formData.append("photo_type", photoType);
+  formData.append("file", file);
+
+  const res = await fetch(`${API_BASE}/settings/upload-photo`, {
+    method: "POST",
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+    body: formData,
+  });
+  if (!res.ok) throw new Error("Failed to upload photo");
+  return res.json();
+}
+
+export async function clearLearnedMemory(): Promise<any> {
+  const res = await fetch(`${API_BASE}/settings/memory`, {
+    method: "DELETE",
+    headers: getHeaders(),
+  });
+  return res.json();
+}
+
+export interface MemoryCategory {
+  id: string;
+  title: string;
+  icon: string;
+  badge: string;
+  content: string;
+}
+
+export interface MemoryDetailResponse {
+  enabled: boolean;
+  summary: string;
+  categories: MemoryCategory[];
+  total_chats_analyzed: number;
+  last_updated?: string;
+}
+
+export async function getStructuredMemory(): Promise<MemoryDetailResponse> {
+  const res = await fetch(`${API_BASE}/settings/memory`, {
+    headers: getHeaders(),
+  });
+  if (!res.ok) throw new Error("Failed to load structured memory");
+  return res.json();
+}
+
+export async function updateStructuredMemory(data: {
+  category_id?: string;
+  content?: string;
+  summary?: string;
+}): Promise<MemoryDetailResponse> {
+  const res = await fetch(`${API_BASE}/settings/memory`, {
+    method: "POST",
+    headers: getHeaders(),
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) throw new Error("Failed to update memory");
+  return res.json();
+}
+
+export async function synthesizeMemoryFromChats(): Promise<MemoryDetailResponse> {
+  const res = await fetch(`${API_BASE}/settings/memory/synthesize`, {
+    method: "POST",
+    headers: getHeaders(),
+  });
+  if (!res.ok) throw new Error("Failed to synthesize memory from chat history");
+  return res.json();
+}
+
+export async function deleteMemoryCategory(categoryId: string): Promise<MemoryDetailResponse> {
+  const res = await fetch(`${API_BASE}/settings/memory/${categoryId}`, {
+    method: "DELETE",
+    headers: getHeaders(),
+  });
+  if (!res.ok) throw new Error("Failed to delete memory category");
+  return res.json();
+}
+
+
+
 
 

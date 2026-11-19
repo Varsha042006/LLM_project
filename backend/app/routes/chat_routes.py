@@ -183,10 +183,13 @@ def list_available_models():
 @router.get("/chats", response_model=List[ChatResponse])
 def get_user_chats(
     search: Optional[str] = Query(None, description="Search term for chat titles or messages"),
+    include_archived: bool = Query(False, description="Include archived chats"),
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     query = db.query(Chat).filter(Chat.user_id == user.id)
+    if not include_archived:
+        query = query.filter(Chat.is_archived == False)
     if search and search.strip():
         term = f"%{search.strip()}%"
         query = query.filter(Chat.title.ilike(term))
@@ -199,6 +202,52 @@ def get_user_chats(
         r.message_count = msg_count
         result.append(r)
     return result
+
+
+@router.get("/chats/archived", response_model=List[ChatResponse])
+def get_archived_chats(
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Retrieves all conversations that have been archived by the user."""
+    chats = db.query(Chat).filter(Chat.user_id == user.id, Chat.is_archived == True).order_by(Chat.updated_at.desc()).all()
+    result = []
+    for c in chats:
+        msg_count = db.query(Message).filter(Message.chat_id == c.id).count()
+        r = ChatResponse.from_orm(c)
+        r.message_count = msg_count
+        result.append(r)
+    return result
+
+
+@router.post("/chats/{chat_id}/archive", response_model=ChatResponse)
+def archive_chat(
+    chat_id: str,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    chat = db.query(Chat).filter(Chat.id == chat_id, Chat.user_id == user.id).first()
+    if not chat:
+        raise HTTPException(status_code=404, detail="Chat not found.")
+    chat.is_archived = True
+    db.commit()
+    db.refresh(chat)
+    return ChatResponse.from_orm(chat)
+
+
+@router.post("/chats/{chat_id}/unarchive", response_model=ChatResponse)
+def unarchive_chat(
+    chat_id: str,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    chat = db.query(Chat).filter(Chat.id == chat_id, Chat.user_id == user.id).first()
+    if not chat:
+        raise HTTPException(status_code=404, detail="Chat not found.")
+    chat.is_archived = False
+    db.commit()
+    db.refresh(chat)
+    return ChatResponse.from_orm(chat)
 
 
 @router.post("/chats", response_model=ChatResponse)

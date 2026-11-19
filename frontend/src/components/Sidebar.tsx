@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { Plus, Search, MessageSquare, Trash2, Edit2, Check, X, Settings, LogOut, PanelLeftClose, User as UserIcon, FileDown } from "lucide-react";
+import { Plus, Search, MessageSquare, Trash2, Edit2, Check, X, Settings, LogOut, PanelLeftClose, User as UserIcon, FileDown, Archive, FileText } from "lucide-react";
 import { Chat, User, downloadChat } from "../lib/api";
 
 interface SidebarProps {
@@ -11,6 +11,8 @@ interface SidebarProps {
   onNewChat: () => void;
   onRenameChat: (id: string, newTitle: string) => void;
   onDeleteChat: (id: string) => void;
+  onArchiveChat?: (id: string) => void;
+  isSettingsOpen?: boolean;
   user?: User | null;
   onOpenAuth?: () => void;
   onLogout?: () => void;
@@ -28,10 +30,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onNewChat,
   onRenameChat,
   onDeleteChat,
+  onArchiveChat,
+  isSettingsOpen = false,
   user,
   onOpenAuth,
   onLogout,
   onOpenSettings,
+  onOpenDocumentModal,
+  documentCount = 0,
 }) => {
   const [search, setSearch] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -224,6 +230,18 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         >
                           <FileDown className="w-3 h-3" />
                         </button>
+                        {onArchiveChat && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onArchiveChat(c.id);
+                            }}
+                            title="Archive Chat"
+                            className="p-1 text-gray-400 hover:text-amber-600 transition-colors"
+                          >
+                            <Archive className="w-3 h-3" />
+                          </button>
+                        )}
                         <button
                           onClick={(e) => startRename(c, e)}
                           title="Rename Chat"
@@ -248,6 +266,38 @@ export const Sidebar: React.FC<SidebarProps> = ({
               );
             })}
           </>
+        )}
+      </div>
+
+      {/* Quick Nav: My documents & Settings (Matching Screenshot Sidebar) */}
+      <div className="px-3 py-2 border-t border-gray-100 dark:border-[#262626] space-y-1 bg-white dark:bg-[#111]">
+        {onOpenDocumentModal && (
+          <button
+            onClick={onOpenDocumentModal}
+            className="w-full flex items-center space-x-2.5 px-3 py-2 rounded-xl text-xs font-semibold text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-[#222] transition-colors cursor-pointer"
+          >
+            <FileText className="w-4 h-4 text-gray-500 dark:text-gray-400" />
+            <span>My documents</span>
+            {documentCount > 0 && (
+              <span className="ml-auto text-[10px] px-1.5 py-0.5 rounded-full bg-gray-200 dark:bg-[#333] text-gray-600 dark:text-gray-400 font-bold">
+                {documentCount}
+              </span>
+            )}
+          </button>
+        )}
+
+        {onOpenSettings && (
+          <button
+            onClick={onOpenSettings}
+            className={`w-full flex items-center space-x-2.5 px-3 py-2 rounded-xl text-xs font-semibold transition-colors cursor-pointer ${
+              isSettingsOpen
+                ? "bg-gray-200/90 text-gray-900 font-bold dark:bg-[#2c2c2c] dark:text-white"
+                : "text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-[#222]"
+            }`}
+          >
+            <Settings className="w-4 h-4 text-gray-500 dark:text-gray-400" />
+            <span>Settings</span>
+          </button>
         )}
       </div>
 

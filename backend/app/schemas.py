@@ -36,9 +36,38 @@ class UserResponse(BaseModel):
     id: str
     email: str
     display_name: str
+    username: Optional[str] = None
+    plan: Optional[str] = "Free"
+    age_range: Optional[str] = "18 or older"
+    gpt_builder_profile: Optional[str] = None
     avatar_url: Optional[str] = None
     auth_provider: str
     is_verified: bool
+
+    class Config:
+        from_attributes = True
+
+
+class UserProfileUpdateRequest(BaseModel):
+    display_name: Optional[str] = None
+    username: Optional[str] = None
+    email: Optional[EmailStr] = None
+    gpt_builder_profile: Optional[str] = None
+    age_range: Optional[str] = None
+
+
+class ChangePasswordRequest(BaseModel):
+    current_password: Optional[str] = None
+    new_password: str
+
+
+class ActiveSessionResponse(BaseModel):
+    id: str
+    user_agent: Optional[str] = None
+    ip_address: Optional[str] = None
+    created_at: datetime
+    last_active: datetime
+    is_current: bool = False
 
     class Config:
         from_attributes = True
@@ -79,6 +108,7 @@ class ChatResponse(BaseModel):
     id: str
     title: str
     model_name: str
+    is_archived: bool = False
     created_at: datetime
     updated_at: datetime
     message_count: Optional[int] = 0
@@ -158,8 +188,14 @@ class SettingsUpdateRequest(BaseModel):
     model_name: Optional[str] = None
     temperature: Optional[float] = None
     top_p: Optional[float] = None
+    max_tokens: Optional[int] = None
     system_prompt: Optional[str] = None
     theme: Optional[str] = None
+    memory_enabled: Optional[bool] = None
+    memory_summary: Optional[str] = None
+    reference_photo_url: Optional[str] = None
+    full_body_photo_url: Optional[str] = None
+    tone_warmth: Optional[str] = None
 
 
 class SettingsResponse(BaseModel):
@@ -170,5 +206,48 @@ class SettingsResponse(BaseModel):
     model_name: str
     temperature: float
     top_p: float
+    max_tokens: int = 1050
     system_prompt: str
     theme: str
+    memory_enabled: bool = True
+    memory_summary: str = "VYNEXA adapts to your technical expertise, programming languages, and workflow preferences."
+    reference_photo_url: Optional[str] = None
+    full_body_photo_url: Optional[str] = None
+    tone_warmth: str = "Warm"
+
+
+class MemoryCategory(BaseModel):
+    id: str
+    title: str
+    icon: str
+    badge: str
+    content: str
+
+
+class MemoryDetailResponse(BaseModel):
+    enabled: bool
+    summary: str
+    categories: List[MemoryCategory]
+    total_chats_analyzed: int
+    last_updated: Optional[str] = None
+
+
+class MemoryUpdateRequest(BaseModel):
+    category_id: Optional[str] = None
+    content: Optional[str] = None
+    summary: Optional[str] = None
+
+
+
+class UsageResponse(BaseModel):
+    plan_name: str = "VYNEXA AI Free"
+    plan_price: str = "₹0 / month"
+    member_since: str = "November 2026"
+    status: str = "Active"
+    monthly_prompts_used: int = 7
+    monthly_prompts_limit: int = 1000
+    total_chats: int = 0
+    prompts_sent: int = 0
+    ai_responses: int = 0
+    documents_count: int = 0
+    pages_indexed: int = 0

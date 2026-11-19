@@ -127,6 +127,22 @@ async def stream_chat_completion(
     formatted_messages = []
     if active_system_prompt:
         formatted_messages.append({"role": "system", "content": active_system_prompt})
+
+    # Inject VYNEXA Personalized Memory context if enabled
+    if user_settings and getattr(user_settings, "memory_enabled", True):
+        mem = getattr(user_settings, "memory_summary", None)
+        if mem and mem.strip():
+            formatted_messages.append({
+                "role": "system",
+                "content": (
+                    "[VYNEXA USER MEMORY & PREFERENCES]\n"
+                    "The following profile has been learned from previous interactions, background, and projects.\n"
+                    "Seamlessly personalize your responses accordingly (e.g. beginner-friendly explanations, "
+                    "practical PowerShell commands for Windows, step-by-step guidance, and relevant domain awareness):\n\n"
+                    f"{mem.strip()}"
+                )
+            })
+
     formatted_messages.extend(messages)
 
     # 0. Local Qwen Neural Engine direct generation

@@ -16,6 +16,10 @@ class User(Base):
     email = Column(String(255), unique=True, index=True, nullable=False)
     password_hash = Column(String(255), nullable=True)
     display_name = Column(String(255), nullable=False, default="Guest User")
+    username = Column(String(100), nullable=True)
+    plan = Column(String(50), default="Free")
+    age_range = Column(String(50), default="18 or older")
+    gpt_builder_profile = Column(String(255), nullable=True)
     avatar_url = Column(String(512), nullable=True)
     auth_provider = Column(String(50), default="email") # email, google, guest
     is_verified = Column(Boolean, default=False)
@@ -28,6 +32,7 @@ class User(Base):
     chats = relationship("Chat", back_populates="user", cascade="all, delete-orphan")
     documents = relationship("Document", back_populates="user", cascade="all, delete-orphan")
     settings = relationship("UserSettings", back_populates="user", uselist=False, cascade="all, delete-orphan")
+    sessions = relationship("ActiveSession", back_populates="user", cascade="all, delete-orphan")
 
 
 class Chat(Base):
@@ -37,6 +42,7 @@ class Chat(Base):
     user_id = Column(String(64), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
     title = Column(String(255), default="New Chat")
     model_name = Column(String(100), default="llama-3.3-70b-versatile")
+    is_archived = Column(Boolean, default=False)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
@@ -85,9 +91,28 @@ class UserSettings(Base):
     model_name = Column(String(100), default="llama-3.3-70b-versatile")
     temperature = Column(Float, default=0.7)
     top_p = Column(Float, default=0.9)
-    system_prompt = Column(Text, default="You are a helpful, brilliant, and friendly AI assistant.")
-    theme = Column(String(20), default="dark")
+    max_tokens = Column(Integer, default=1050)
+    system_prompt = Column(Text, default="You are a helpful AI assistant. Answer clearly and concisely, and use Markdown when it helps.")
+    theme = Column(String(20), default="light")
+    memory_enabled = Column(Boolean, default=True)
+    memory_summary = Column(Text, default="VYNEXA adapts to your technical expertise, programming languages, and workflow preferences.")
+    reference_photo_url = Column(String(512), nullable=True)
+    full_body_photo_url = Column(String(512), nullable=True)
+    tone_warmth = Column(String(50), default="Warm")
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     user = relationship("User", back_populates="settings")
+
+
+class ActiveSession(Base):
+    __tablename__ = "active_sessions"
+
+    id = Column(String(64), primary_key=True, default=generate_uuid)
+    user_id = Column(String(64), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    user_agent = Column(Text, nullable=True)
+    ip_address = Column(String(100), nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    last_active = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    user = relationship("User", back_populates="sessions")
 

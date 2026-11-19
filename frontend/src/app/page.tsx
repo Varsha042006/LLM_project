@@ -25,6 +25,7 @@ import {
   getChatDetail,
   renameChat,
   deleteChat,
+  archiveChat,
   listDocuments,
   getAvailableModels,
   sendFeedback,
@@ -203,6 +204,18 @@ export default function Home() {
     }
   };
 
+  const handleArchiveChat = async (chatId: string) => {
+    try {
+      await archiveChat(chatId);
+      setChats((prev) => prev.filter((c) => c.id !== chatId));
+      if (activeChatId === chatId) {
+        handleNewChat();
+      }
+    } catch (err) {
+      console.error("Failed to archive chat:", err);
+    }
+  };
+
   const handleSendMessage = async (text: string, imageUrl?: string, documentName?: string) => {
     if (!text.trim() && !imageUrl && !documentName) return;
     if (isStreaming) return;
@@ -367,10 +380,14 @@ export default function Home() {
         }}
         onRenameChat={handleRenameChat}
         onDeleteChat={handleDeleteChat}
+        onArchiveChat={handleArchiveChat}
+        isSettingsOpen={isSettingsModalOpen}
         user={user}
         onOpenAuth={() => setIsAuthModalOpen(true)}
         onLogout={handleLogout}
         onOpenSettings={() => setIsSettingsModalOpen(true)}
+        onOpenDocumentModal={() => setIsDocModalOpen(true)}
+        documentCount={documents.length}
         mode={workspaceMode}
         onModeChange={setWorkspaceMode}
       />
@@ -440,6 +457,11 @@ export default function Home() {
       <SettingsModal
         isOpen={isSettingsModalOpen}
         onClose={() => setIsSettingsModalOpen(false)}
+        user={user}
+        onUserUpdated={(u) => setUser(u)}
+        theme={theme}
+        onToggleTheme={toggleTheme}
+        onChatRestored={() => refreshChats()}
         onSettingsUpdated={async () => {
           const models = await getAvailableModels();
           setAvailableModels(models);
