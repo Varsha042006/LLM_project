@@ -1,0 +1,43 @@
+# Python & Bytecode
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+.venv/
+
+# Streamlit Secrets & Credentials (NEVER COMMIT)
+.streamlit/secrets.toml
+secrets.toml
+firebase-service-account.json
+firebase-credentials.json
+serviceAccountKey.json
+*-adminsdk-*.json
+*.pem
+*.key
+
+# Environment Variables
+.env
+.env.local
+.env.*.local
+
+# Databases & User Data
+*.db
+localgpt.db
+chatgpt_platform.db
+uploads/
+backend_uploads/
+generated_images/
+indexes/
+
+# Node.js & Next.js (Frontend)
+node_modules/
+.next/
+out/
+build/
+dist/
+.DS_Store
+Thumbs.db
+
