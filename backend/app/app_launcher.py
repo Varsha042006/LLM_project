@@ -183,7 +183,8 @@ def detect_app_launch_intent(message: str) -> List[str]:
 
 def launch_app(app_key: str) -> Dict[str, Any]:
     """
-    Executes the app launch on the local Windows OS and returns the launch result details.
+    Executes the app launch on the local Windows OS asynchronously and returns the launch result details.
+    Guarantees non-blocking execution via detached subprocesses.
     """
     app_info = APP_REGISTRY.get(app_key)
     if not app_info:
@@ -202,26 +203,26 @@ def launch_app(app_key: str) -> Dict[str, Any]:
 
     # 1. Custom handling for WhatsApp
     if app_key == "whatsapp":
-        # Attempt protocol launch for Desktop WhatsApp
+        # Launch WhatsApp Desktop protocol in non-blocking detached process
         try:
-            os.startfile("whatsapp://")
-            launched_methods.append("WhatsApp Desktop Protocol (whatsapp://)")
+            subprocess.Popen("start whatsapp:", shell=True)
+            launched_methods.append("WhatsApp Desktop (start whatsapp:)")
             success = True
         except Exception:
             pass
 
-        # Also open WhatsApp Web in Chrome to guarantee access
+        # Also open WhatsApp Web in Chrome
         try:
             if os.path.exists(chrome_path):
                 subprocess.Popen([chrome_path, "https://web.whatsapp.com"])
             else:
-                subprocess.Popen("start chrome https://web.whatsapp.com", shell=True)
+                subprocess.Popen('start chrome "https://web.whatsapp.com"', shell=True)
             launched_methods.append("WhatsApp Web (https://web.whatsapp.com)")
             success = True
         except Exception:
             try:
-                webbrowser.open("https://web.whatsapp.com")
-                launched_methods.append("WhatsApp Web via Default Browser")
+                subprocess.Popen('start "" "https://web.whatsapp.com"', shell=True)
+                launched_methods.append("Default Browser")
                 success = True
             except Exception:
                 pass
@@ -244,16 +245,14 @@ def launch_app(app_key: str) -> Dict[str, Any]:
             else:
                 subprocess.Popen("start chrome", shell=True)
             success = True
-            launched_methods.append(f"Google Chrome Executable ({chrome_path})")
-        except Exception as e:
+            launched_methods.append("Google Chrome")
+        except Exception:
             try:
                 subprocess.Popen("cmd /c start chrome", shell=True)
                 success = True
-                launched_methods.append("Shell Start Command (cmd /c start chrome)")
-            except Exception as e2:
-                webbrowser.open("https://www.google.com")
-                success = True
-                launched_methods.append("Default Browser Fallback")
+                launched_methods.append("Shell Start (start chrome)")
+            except Exception:
+                pass
 
         return {
             "app_key": "chrome",
@@ -274,20 +273,19 @@ def launch_app(app_key: str) -> Dict[str, Any]:
             else:
                 subprocess.Popen(f'start chrome "{url}"', shell=True)
             success = True
-            launched_methods.append(f"Opened {url} in Google Chrome")
+            launched_methods.append(f"Google Chrome ({url})")
         except Exception:
             try:
-                webbrowser.open(url)
+                subprocess.Popen(f'start "" "{url}"', shell=True)
                 success = True
-                launched_methods.append(f"Opened {url} in default browser")
+                launched_methods.append(f"Default browser ({url})")
             except Exception:
                 pass
 
-        # Try protocol if present (e.g. Spotify)
         if "protocol" in app_info:
             try:
-                os.startfile(app_info["protocol"])
-                launched_methods.append(f"Native Protocol ({app_info['protocol']})")
+                subprocess.Popen(f'start {app_info["protocol"]}', shell=True)
+                launched_methods.append(f"Protocol ({app_info['protocol']})")
                 success = True
             except Exception:
                 pass
@@ -306,14 +304,14 @@ def launch_app(app_key: str) -> Dict[str, Any]:
     if "command" in app_info:
         cmd = app_info["command"]
         try:
-            subprocess.Popen(cmd, shell=True)
+            subprocess.Popen(f"start {cmd}", shell=True)
             success = True
-            launched_methods.append(f"Windows Command ({cmd})")
-        except Exception as e:
+            launched_methods.append(f"Windows Command (start {cmd})")
+        except Exception:
             try:
-                os.startfile(cmd)
+                subprocess.Popen(cmd, shell=True)
                 success = True
-                launched_methods.append(f"os.startfile({cmd})")
+                launched_methods.append(cmd)
             except Exception:
                 pass
 
@@ -330,16 +328,11 @@ def launch_app(app_key: str) -> Dict[str, Any]:
     if "protocol" in app_info:
         proto = app_info["protocol"]
         try:
-            os.startfile(proto)
+            subprocess.Popen(f"start {proto}", shell=True)
             success = True
-            launched_methods.append(f"Windows URI Protocol ({proto})")
+            launched_methods.append(f"Windows Protocol (start {proto})")
         except Exception:
-            try:
-                subprocess.Popen(f"start {proto}", shell=True)
-                success = True
-                launched_methods.append(f"Shell Start ({proto})")
-            except Exception:
-                pass
+            pass
 
         return {
             "app_key": app_key,
@@ -357,3 +350,4 @@ def launch_app(app_key: str) -> Dict[str, Any]:
         "success": False,
         "error": "No execution method succeeded."
     }
+

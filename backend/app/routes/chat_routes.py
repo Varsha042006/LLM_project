@@ -53,6 +53,7 @@ from ..gemini_service import (
     synthesize_modification_prompt,
     generate_image_with_imagen
 )
+from ..app_launcher import detect_app_launch_intent, launch_app
 
 router = APIRouter(prefix="/api", tags=["Chat"])
 
@@ -416,6 +417,75 @@ async def chat_stream_endpoint(
     bind_engine = db.get_bind()
 
     has_explicit_image = bool(req.image_url)
+
+    # -------------------------------------------------------------
+    # 0. System Application & Tool Launcher (e.g. "open whatsapp", "open chrome")
+    # -------------------------------------------------------------
+    matched_apps = detect_app_launch_intent(req.message)
+    if matched_apps:
+        async def sse_app_launch_stream():
+            meta_event = {
+                "type": "meta",
+                "chat_id": chat_id_val,
+                "user_message_id": user_msg_id,
+                "assistant_message_id": assistant_msg_id,
+                "sources": []
+            }
+            yield f"data: {json.dumps(meta_event)}\n\n"
+
+            # Execute launch for each matched application on Windows
+            launch_results = []
+            for app_key in matched_apps:
+                res = launch_app(app_key)
+                launch_results.append(res)
+
+            if len(launch_results) == 1:
+                r = launch_results[0]
+                app_n = r["name"]
+                status_emoji = "✅" if r["success"] else "⚠️"
+                web_link = f"\n\n👉 [Open {app_n} in Browser]({r['web_url']})" if r.get("web_url") else ""
+                fallback_detail = f"{app_n} has been launched on your Windows desktop."
+                content = (
+                    f"🚀 {status_emoji} **Opening {app_n}...**\n\n"
+                    f"{r.get('details', fallback_detail)}"
+                    f"{web_link}\n\n"
+                    f"*(Action executed directly on Windows 11)*"
+                )
+            else:
+                names = ", ".join(r["name"] for r in launch_results)
+                content = f"🚀 **Launching Applications ({names})...**\n\n"
+                for r in launch_results:
+                    status_emoji = "✅" if r["success"] else "⚠️"
+                    web_link = f" • [Open Web App]({r['web_url']})" if r.get("web_url") else ""
+                    content += f"- {r['icon']} **{r['name']}**: {status_emoji} Launched on Windows.{web_link}\n"
+                content += "\n*(Actions executed directly on Windows 11)*"
+
+            yield f"data: {json.dumps({'type': 'token', 'content': content})}\n\n"
+
+            # Save assistant message in database
+            with Session(bind_engine) as save_db:
+                ast_msg = Message(
+                    id=assistant_msg_id,
+                    chat_id=chat_id_val,
+                    user_id=user_id_val,
+                    role="assistant",
+                    content=content,
+                    sources=None
+                )
+                save_db.add(ast_msg)
+                c_update = save_db.query(Chat).filter(Chat.id == chat_id_val).first()
+                if c_update and c_update.title == "New Chat":
+                    display_title = names if len(launch_results) > 1 else launch_results[0]['name']
+                    c_update.title = f"🚀 Open {display_title}"[:30]
+                save_db.commit()
+
+            yield f"data: {json.dumps({'type': 'done', 'message_id': assistant_msg_id})}\n\n"
+
+        return StreamingResponse(
+            sse_app_launch_stream(),
+            media_type="text/event-stream",
+            headers={"Cache-Control": "no-cache", "Connection": "keep-alive", "X-Accel-Buffering": "no"}
+        )
 
     # -------------------------------------------------------------
     # 1. New Image Generation Request (e.g. "boy", "generate image of boy", "photo of a boy")
